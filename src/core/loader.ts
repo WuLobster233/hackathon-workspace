@@ -81,32 +81,3 @@ export async function loadDicomFiles(
 
   return imageIds.length
 }
-
-// Load sample DICOM data from public/data/ using manifest.json.
-// Returns the number of images loaded (0 if unavailable).
-export async function loadSampleData(
-  onProgress?: (loaded: number, total: number) => void
-): Promise<number> {
-  try {
-    const response = await fetch('/data/manifest.json')
-    if (!response.ok) return 0
-
-    const manifest = await response.json()
-    if (!manifest.files || manifest.files.length === 0) return 0
-
-    imageIds = manifest.files.map((f: string) => `wadouri:/data/sample_dicom/${f}`)
-
-    const re = getRenderingEngine()
-    const vp = re.getViewport(VIEWPORT_ID) as Types.IStackViewport
-    const mid = Math.floor(imageIds.length / 2)
-
-    onProgress?.(0, imageIds.length)
-    await vp.setStack(imageIds, mid)
-    vp.render()
-    onProgress?.(imageIds.length, imageIds.length)
-
-    return imageIds.length
-  } catch {
-    return 0
-  }
-}

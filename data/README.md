@@ -51,7 +51,7 @@ The XML files follow the LIDC-IDRI schema. Each `<roi>` element contains:
 - `<imageSOP_UID>` — which DICOM slice this contour belongs to
 - `<edgeMap>` elements — pixel (x, y) coordinates of the contour
 
-See `pre-hackathon-materials/docs/LIDC_DATA_GUIDE.md` for full format details.
+See `../pre-hackathon-materials/docs/LIDC_DATA_GUIDE.md` for full format details.
 
 ## Segmentation Files
 

@@ -12,7 +12,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173 in your browser.
+Open http://localhost:3000 in your browser.
 
 ## What's Already Working
 
@@ -156,7 +156,7 @@ npm install
 ```
 
 ### CORS errors
-Make sure you're accessing via `http://localhost:5173`, not `file://`
+Make sure you're accessing via `http://localhost:3000`, not `file://`
 
 ### Viewport is black
 - Check browser console for errors

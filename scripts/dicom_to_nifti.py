@@ -9,7 +9,7 @@ Usage:
     python dicom_to_nifti.py <dicom_dir> <output_nifti>
 
 Example:
-    python dicom_to_nifti.py ./data/sample_dicom ./data/input.nii.gz
+    python dicom_to_nifti.py data/LIDC-IDRI-0001/ct data/LIDC-IDRI-0001/ct.nii.gz
 
 Requirements:
     pip install SimpleITK

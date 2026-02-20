@@ -4,7 +4,7 @@
 // =============================================================================
 //
 // This viewer is ALREADY WORKING (load DICOM, scroll, W/L, draw annotations).
-// Your three hackathon tasks are to ADD NEW FEATURES using the skeleton
+// Your four hackathon tasks are to ADD NEW FEATURES using the skeleton
 // functions below — look for the TODO markers!
 //
 // Tasks summary:
@@ -28,7 +28,7 @@ import {
   setupResizeObserver,
   VIEWPORT_ID,
 } from './core/init'
-import { loadDicomFiles, loadSampleData, getImageIds, LIDC_STUDIES } from './core/loader'
+import { loadDicomFiles, loadStudy, getImageIds, LIDC_STUDIES } from './core/loader'
 import {
   WindowLevelTool,
   PanTool,
@@ -77,20 +77,8 @@ export default function App() {
         initViewport(el)
         initTools()
         cleanupResize = setupResizeObserver(el)
-
-        // Try to auto-load sample data from public/data/
-        setStatus('Looking for sample data…')
-        const n = await loadSampleData((loaded, total) =>
-          setStatus(`Loading sample data… ${loaded}/${total}`)
-        )
-        if (n > 0) {
-          setInfo({ slice: String(Math.floor(n / 2) + 1), total: String(n), wl: '--' })
-          setStatus(`Loaded ${n} sample image${n !== 1 ? 's' : ''} — ready!`)
-        } else {
-          setStatus('Ready — use "Load DICOM" to load images')
-        }
-
         setReady(true)
+        setStatus('Ready — select a study from the panel to begin')
       } catch (err) {
         setStatus(`Error: ${err instanceof Error ? err.message : String(err)}`)
       }
@@ -235,7 +223,7 @@ export default function App() {
     // TODO Task 2 — implement handleLoadGT()
     console.warn('Task 2 not yet implemented')
     setStatus('Task 2: Load Ground Truth — not yet implemented')
-  }, [])
+  }, [activeStudy])
 
   // ---------------------------------------------------------------------------
   // TASK 3 — Run AI Segmentation Model
@@ -249,7 +237,7 @@ export default function App() {
     // TODO Task 3 — implement handleRunAI()
     console.warn('Task 3 not yet implemented')
     setStatus('Task 3: Run AI Segmentation — not yet implemented')
-  }, [])
+  }, [activeStudy])
 
   // ---------------------------------------------------------------------------
   // TASK 4 — Display AI Segmentation Overlay
@@ -264,7 +252,7 @@ export default function App() {
     // TODO Task 4 — implement handleShowAISeg()
     console.warn('Task 4 not yet implemented')
     setStatus('Task 4: Show AI Segmentation — not yet implemented')
-  }, [])
+  }, [activeStudy])
 
   // ---------------------------------------------------------------------------
   // BONUS A — AI-Assisted Segmentation
@@ -282,7 +270,7 @@ export default function App() {
     // TODO Bonus A — implement handleAIAssist()
     console.warn('Bonus A not yet implemented')
     setStatus('Bonus A: AI-Assisted Segmentation — not yet implemented')
-  }, [])
+  }, [activeStudy])
 
   // ==========================================================================
   return (

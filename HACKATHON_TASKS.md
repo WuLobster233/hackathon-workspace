@@ -43,7 +43,7 @@ You have a working DICOM viewer built with Cornerstone3D. Your mission is to imp
 ### Hints
 
 - The Studies panel placeholder is already in the JSX — find the `Task 1: implement study selector` comment and replace it with your implementation
-- `LIDC_STUDIES` and `loadStudy` are already imported and available — check `./core/loader`
+- `LIDC_STUDIES` and `loadStudy` are available from `./core/loader` — import `loadStudy` alongside `LIDC_STUDIES` if you haven't already
 - Use `activeStudy` state (already defined) to track and highlight the selected study
 - Tasks 2–4 should use `activeStudy` to know which study's annotations and segmentations to load
 
@@ -69,7 +69,7 @@ You have a working DICOM viewer built with Cornerstone3D. Your mission is to imp
 
 - The LIDC XML uses a default namespace (`xmlns="http://www.nih.gov"`). Standard `getElementsByTagName` will not find elements — you need namespace-aware querying. See [MDN: getElementsByTagNameNS](https://developer.mozilla.org/en-US/docs/Web/API/Element/getElementsByTagNameNS).
 - Each `<roi>` has an `<imageZposition>` (Z in mm) and a list of `<edgeMap>` elements with `<xCoord>` / `<yCoord>` in image pixel coordinates.
-- Cornerstone3D annotations use **world coordinates** (mm), not pixel indices. There is a utility in `@cornerstonejs/core` that converts image pixel coordinates to world coordinates — look at the `utilities` export. Its signature is `(imageId, [col, row])`.
+- Cornerstone3D annotations use **world coordinates** (mm), not pixel indices. There is a utility in `@cornerstonejs/core` that converts image pixel coordinates to world coordinates — look at the `utilities` export. Its signature is `(imageId, [row, col])` — note the order: row first, then column (i.e. `[yCoord, xCoord]` from the LIDC `<edgeMap>`).
 - The Z coordinate comes directly from `<imageZposition>` — it is already in mm.
 - To add annotations programmatically, use `annotation.state.addAnnotation()` from `@cornerstonejs/tools`. See [Cornerstone3D docs](https://www.cornerstonejs.org/docs/).
 - `scripts/parse_lidc_xml.py` shows the XML structure in Python if you want to study it first.
@@ -104,15 +104,22 @@ Any working progress toward automation earns credit.
 ### Scripts available
 
 - `scripts/dicom_to_nifti.py` — converts DICOM slices to NIfTI (input for AI models)
-- `scripts/run_totalsegmentator.py` — runs TotalSegmentator on a NIfTI file
+- `scripts/run_totalsegmentator.py` — runs TotalSegmentator (`lung_nodules` task) on a NIfTI file, outputs a NIfTI segmentation
+- `scripts/nifti_to_dicom_seg.py` — converts a NIfTI segmentation to DICOM SEG (required for Task 4 to load the result)
 
-These are building blocks, not a complete solution. Study them and decide how to wire them up.
+The full pipeline is:
+```
+DICOM slices → NIfTI          (dicom_to_nifti.py)
+NIfTI → segmentation NIfTI   (run_totalsegmentator.py)
+segmentation NIfTI → DICOM SEG  (nifti_to_dicom_seg.py)
+DICOM SEG → displayed overlay  (Task 4)
+```
 
 ### Models
 
 | Model | Install | Speed (CPU) | Notes |
 |-------|---------|-------------|-------|
-| **TotalSegmentator** | `pip install TotalSegmentator` | ~10 min (`--fast` mode) | Use `--task lung_nodules` for LIDC-relevant output |
+| **TotalSegmentator** | `pip install TotalSegmentator` | ~10 min (`--fast` mode) | `run_totalsegmentator.py` hard-codes `lung_nodules` task |
 | **MONAI Label** | `pip install monailabel` | Variable | Server-based; more setup required |
 
 Pre-computed results are available in `data/<activeStudy>/annotations/` if you want Task 4 to work even if Task 3 is incomplete.

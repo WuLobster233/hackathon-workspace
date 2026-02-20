@@ -1,48 +1,36 @@
-# Data — Download Required
+# Data
 
-The DICOM data is too large for GitHub. Download it before running the viewer.
+All 10 LIDC-IDRI cases are pre-populated in this directory. No download is required.
 
-## Quick Download (Recommended)
+## Structure
+
+```
+data/
+├── LIDC-IDRI-0001/
+│   ├── ct/             ← 133 DICOM slices (1-001.dcm … 1-133.dcm)
+│   └── annotations/    ← 069.xml + 2 DICOM SEG files
+├── LIDC-IDRI-0002/ … LIDC-IDRI-0010/   ← same structure
+└── README.md
+```
+
+## Cases
+
+| Patient | CT Slices | XML File |
+|---------|-----------|----------|
+| LIDC-IDRI-0001 | 133 | 069.xml |
+| LIDC-IDRI-0002 | 261 | 071.xml |
+| LIDC-IDRI-0003 | 140 | 072.xml |
+| LIDC-IDRI-0004 | 241 | 074.xml |
+| LIDC-IDRI-0005 | 133 | 076.xml |
+| LIDC-IDRI-0006 | 133 | 078.xml |
+| LIDC-IDRI-0007 | 145 | 081.xml |
+| LIDC-IDRI-0008 | 133 | 082.xml |
+| LIDC-IDRI-0009 | 256 | 085.xml |
+| LIDC-IDRI-0010 | 277 | 086.xml |
+
+If you need to re-download data, use:
 
 ```bash
 pip install gdown
 python scripts/download_data.py
 ```
-
-This downloads and unpacks all data into `data/` automatically.
-
-## Manual Download
-
-1. Download the archive from Google Drive:
-   **https://drive.google.com/file/d/REPLACE_WITH_FILE_ID/view?usp=sharing**
-2. Unzip into this `data/` folder so the structure looks like:
-
-```
-data/
-├── LIDC-IDRI-0001/
-│   ├── ct/             ← 133 DICOM slices
-│   └── annotations/    ← 069.xml + 2 SEG files
-├── LIDC-IDRI-0002/ … LIDC-IDRI-0010/
-└── manifest.json
-```
-
-## What's Included
-
-| Patient | CT Slices | Nodules |
-|---------|-----------|---------|
-| LIDC-IDRI-0001 | 133 | 10 |
-| LIDC-IDRI-0002 | 261 | 23 |
-| LIDC-IDRI-0003 | 140 | 13 |
-| LIDC-IDRI-0004 | 241 | 4 |
-| LIDC-IDRI-0005 | 133 | 5 |
-| LIDC-IDRI-0006 | 133 | 4 |
-| LIDC-IDRI-0007 | 145 | 4 |
-| LIDC-IDRI-0008 | 133 | 4 |
-| LIDC-IDRI-0009 | 256 | 2 |
-| LIDC-IDRI-0010 | 277 | 5 |
-
-Each patient folder contains:
-- `ct/` — CT DICOM slices (`1-001.dcm` … `1-NNN.dcm`)
-- `annotations/` — LIDC XML + LIDC Combined SEG + TotalSegmentator lung nodule SEG
-
-The viewer auto-loads `LIDC-IDRI-0001` on startup via `public/data → ../data`.
