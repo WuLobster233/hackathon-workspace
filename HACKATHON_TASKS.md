@@ -7,259 +7,228 @@
 
 ## Overview
 
-You have a working DICOM viewer built with Cornerstone3D. DICOM images load automatically on startup. Your mission is to implement the four disabled buttons in the toolbar.
+You have a working DICOM viewer built with Cornerstone3D. Your mission is to implement the four task buttons in the toolbar and, if time permits, one or both bonus features.
 
-**Where to code**: `src/App.tsx` — look for the four `handle*` functions with TODO markers
+**Where to code**: `src/App.tsx` — look for the `handle*` functions with TODO markers
 
 **Tasks to implement**:
 
-| Task | Description | Points |
-|------|-------------|--------|
-| Task 1 | Load & Display Ground Truth | 30 pts |
-| Task 2 | Export Annotations as XML | 30 pts |
-| Task 3 | Load & Display AI Segmentation | 40 pts |
-| Bonus A | One-Click AI Pipeline | 30 pts |
-| Bonus B | UI Polish & Extra Tools | 20 pts |
+| Task | Description |
+|------|-------------|
+| Task 1 | Study Selector Panel |
+| Task 2 | Load & Display Ground Truth |
+| Task 3 | Run AI Segmentation Model |
+| Task 4 | Load & Display AI Segmentation |
+| Bonus A | AI-Assisted Segmentation |
+| Bonus B | UI Polish & Extra Tools |
 
-**Total: 100 pts + 50 bonus**
-
-**Partial credit is awarded!** Even incomplete implementations earn points.
+**Partial credit is awarded.** Even incomplete implementations earn credit — show your thinking.
 
 ---
 
-## Task 1: Load Ground Truth Annotations (30 pts)
+## Task 1: Study Selector Panel
 
-**Goal**: When the "Load Ground Truth" button is clicked, load LIDC-IDRI XML annotations and display nodule contours on the appropriate slices.
+**Goal**: Build a panel that lists all available LIDC studies and loads the selected study's CT slices into the viewer when clicked.
 
-### Requirements
+### What to build
 
-1. **Fetch the XML file** from `data/sample_annotations/`
-2. **Parse the XML** to extract nodule contours with their Z positions
-3. **Display as annotations** using Cornerstone3D's PlanarFreehandROI tool
+- Display the list of LIDC studies in the Studies panel (left sidebar)
+- When a study is clicked, load its CT slices into the viewer
+- Show which study is currently active (highlight or label)
+
+### What's available
+
+`LIDC_STUDIES` (exported from `./core/loader`) is an array of study metadata objects, each with `id`, `slices`, and `xml` fields. `loadStudy(caseId)` (also in `./core/loader`) loads the CT slices for a given case ID into the viewer.
 
 ### Hints
 
-```typescript
-// Fetch XML
-const response = await fetch('/data/sample_annotations/069.xml');
-const xmlText = await response.text();
+- The Studies panel placeholder is already in the JSX — find the `Task 1: implement study selector` comment and replace it with your implementation
+- `LIDC_STUDIES` and `loadStudy` are already imported and available — check `./core/loader`
+- Use `activeStudy` state (already defined) to track and highlight the selected study
+- Tasks 2–4 should use `activeStudy` to know which study's annotations and segmentations to load
 
-// Parse with DOMParser
-const parser = new DOMParser();
-const doc = parser.parseFromString(xmlText, 'text/xml');
+### What to include in your report
 
-// Find ROIs (handle XML namespace with wildcard)
-const rois = doc.getElementsByTagNameNS('*', 'roi');
-Array.from(rois).forEach(roi => {
-  const zPos = roi.getElementsByTagNameNS('*', 'imageZposition')[0]?.textContent;
-  const edgeMaps = roi.getElementsByTagNameNS('*', 'edgeMap');
-  // Extract x,y from each edgeMap
-});
-```
-
-### Coordinate Conversion
-
-LIDC annotations are in **image pixel coordinates** (x, y) with a **Z position in mm**. You need **world coordinates** (all in mm) for Cornerstone3D annotations.
-
-The viewport's image data exposes the affine transform:
-
-```typescript
-const vp = re.getViewport(VIEWPORT_ID) as Types.IStackViewport
-const imageData = vp.getImageData()
-const { origin, spacing, direction } = imageData
-
-// Pixel (col, row) → World (x, y, z)
-// world_x = origin[0] + col * spacing[0] * direction[0][0]
-//                     + row * spacing[1] * direction[1][0]
-// world_y = origin[1] + col * spacing[0] * direction[0][1]
-//                     + row * spacing[1] * direction[1][1]
-// world_z comes directly from the XML <imageZposition> value
-
-// Simpler: use the imageToWorldCoords utility from @cornerstonejs/core
-import { utilities } from '@cornerstonejs/core'
-const worldPoint = utilities.imageToWorldCoords(imageId, [col, row])
-```
+1. How did you structure the panel and manage the active study state?
+2. What edge cases did you consider (e.g. switching studies while annotations are loaded)?
+3. If you used AI: what did it get wrong and what did you have to fix?
 
 ---
 
-## Task 2: Export Annotations as XML (30 pts)
+## Task 2: Load Ground Truth Annotations
 
-**Goal**: When "Export XML" is clicked, export user-drawn annotations to LIDC-compatible XML format and trigger a download.
+**Goal**: When "Load GT" is clicked, load the LIDC XML annotations for the active study and display nodule contours as freehand overlays on the correct slices.
 
-### Requirements
+### What to build
 
-1. **Get all annotations** from Cornerstone3D state
-2. **Convert world coordinates** back to image pixel coordinates
-3. **Generate valid XML** with proper structure
-4. **Trigger a file download**
+- Fetch the XML file for the active study from `data/<activeStudy>/annotations/<xml>`
+- Parse the XML to extract per-slice nodule contours
+- Display each contour as a `PlanarFreehandROI` annotation on the matching slice
 
-### Sample Output Format
+### Hints
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<LidcReadMessage>
-  <readingSession>
-    <unblindedReadNodule>
-      <noduleID>user-annotation-1</noduleID>
-      <roi>
-        <imageZposition>-150.5</imageZposition>
-        <edgeMap><xCoord>256</xCoord><yCoord>312</yCoord></edgeMap>
-        <edgeMap><xCoord>258</xCoord><yCoord>315</yCoord></edgeMap>
-        <!-- more points -->
-      </roi>
-    </unblindedReadNodule>
-  </readingSession>
-</LidcReadMessage>
+- The LIDC XML uses a default namespace (`xmlns="http://www.nih.gov"`). Standard `getElementsByTagName` will not find elements — you need namespace-aware querying. See [MDN: getElementsByTagNameNS](https://developer.mozilla.org/en-US/docs/Web/API/Element/getElementsByTagNameNS).
+- Each `<roi>` has an `<imageZposition>` (Z in mm) and a list of `<edgeMap>` elements with `<xCoord>` / `<yCoord>` in image pixel coordinates.
+- Cornerstone3D annotations use **world coordinates** (mm), not pixel indices. There is a utility in `@cornerstonejs/core` that converts image pixel coordinates to world coordinates — look at the `utilities` export. Its signature is `(imageId, [col, row])`.
+- The Z coordinate comes directly from `<imageZposition>` — it is already in mm.
+- To add annotations programmatically, use `annotation.state.addAnnotation()` from `@cornerstonejs/tools`. See [Cornerstone3D docs](https://www.cornerstonejs.org/docs/).
+- `scripts/parse_lidc_xml.py` shows the XML structure in Python if you want to study it first.
+
+### What to include in your report
+
+1. What approach did you take to match XML contours to the correct DICOM slices?
+2. What was confusing or unexpected about the coordinate conversion?
+3. If you used AI: what did it get wrong and what did you have to fix?
+
+---
+
+## Task 3: Run AI Segmentation Model
+
+**Goal**: When "Run AI" is clicked, trigger an AI segmentation model on the active study's CT data and retrieve the segmentation result.
+
+### What to build
+
+Run either **TotalSegmentator** or **MONAI Label** on the CT data in `data/<activeStudy>/ct/` and produce a segmentation file that Task 4 can display. How you connect the frontend to the Python model is up to you.
+
+### Approach is open-ended
+
+There is no single correct solution. Some options:
+
+- Build a small Python HTTP server (Flask/FastAPI) that wraps the provided scripts and have the button POST to it
+- Call `scripts/dicom_to_nifti.py` + a segmentation model via a Node subprocess from a local script
+- Implement a "poll for results" UI that checks for a new file and loads it when it appears
+- A drag-and-drop fallback that accepts a segmentation file the user ran manually
+
+Any working progress toward automation earns credit.
+
+### Scripts available
+
+- `scripts/dicom_to_nifti.py` — converts DICOM slices to NIfTI (input for AI models)
+- `scripts/run_totalsegmentator.py` — runs TotalSegmentator on a NIfTI file
+
+These are building blocks, not a complete solution. Study them and decide how to wire them up.
+
+### Models
+
+| Model | Install | Speed (CPU) | Notes |
+|-------|---------|-------------|-------|
+| **TotalSegmentator** | `pip install TotalSegmentator` | ~10 min (`--fast` mode) | Use `--task lung_nodules` for LIDC-relevant output |
+| **MONAI Label** | `pip install monailabel` | Variable | Server-based; more setup required |
+
+Pre-computed results are available in `data/<activeStudy>/annotations/` if you want Task 4 to work even if Task 3 is incomplete.
+
+### Hints
+
+- The pipeline is: DICOM slices → NIfTI → AI model → segmentation output → DICOM SEG (or NIfTI)
+- Think about how the frontend knows when the model is done. Polling? WebSocket? Manual trigger?
+- The frontend needs to obtain the result file path or blob to pass to Task 4.
+
+### What to include in your report
+
+1. What integration approach did you choose and why?
+2. What was the hardest part of connecting the Python model to the browser?
+3. If you used AI: what did it get wrong and what did you have to fix?
+
+---
+
+## Task 4: Load & Display AI Segmentation
+
+**Goal**: When "Show AI Seg" is clicked, load a DICOM SEG segmentation file and display it as a coloured overlay on the CT images.
+
+### What to build
+
+- Load a DICOM SEG file (from Task 3's output, or from the pre-computed fallback below)
+- Display it as a labelmap overlay using Cornerstone3D's segmentation API
+- Show the segment names and colours in the Segments panel (right sidebar)
+
+### Pre-computed fallback
+
+Even if Task 3 is not complete, you can use these files directly:
+
+```
+data/LIDC-IDRI-0001/annotations/LIDC-IDRI-0001_lung_nodules_seg.dcm   ← TotalSegmentator output
+data/LIDC-IDRI-0001/annotations/LIDC-IDRI-0001_Combined_SEG.dcm       ← LIDC nodule masks
 ```
 
 ### Hints
 
-```typescript
-import { annotation } from '@cornerstonejs/tools';
+- DICOM SEG is a multi-frame binary format — more complex than a standard DICOM image. Look at [dcmjs](https://github.com/dcmjs-org/dcmjs) for JavaScript-side DICOM SEG decoding.
+- Cornerstone3D's `@cornerstonejs/tools` has a `segmentation` module. Look at the API docs for `addSegmentations` and `addLabelmapRepresentationToViewportMap`. The representation type is `Labelmap`.
+- The overlay must align with the CT slices. If segments appear on the wrong slice, the coordinate mapping is wrong.
+- Populating the Segments panel with segment names and colours earns additional credit.
 
-// Get all annotations
-const allAnnotations = annotation.state.getAllAnnotations();
+### What to include in your report
 
-// Filter for freehand ROIs
-const freehandAnnotations = allAnnotations.filter(
-  a => a.metadata.toolName === 'PlanarFreehandROI'
-);
-
-// Build XML string and trigger download
-let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<LidcReadMessage>\n';
-// ... add structure ...
-const blob = new Blob([xml], { type: 'text/xml' });
-const url = URL.createObjectURL(blob);
-const a = document.createElement('a');
-a.href = url;
-a.download = 'annotations.xml';
-a.click();
-```
+1. How did you load and decode the DICOM SEG file?
+2. Did the overlay align correctly with the CT? If not, what did you do to fix it?
+3. If you used AI: what did it get wrong and what did you have to fix?
 
 ---
 
-## Task 3: Load & Display AI Segmentation (40 pts)
+## Bonus A: AI-Assisted Segmentation
 
-**Goal**: When "Load AI Result" is clicked, load a pre-computed DICOM SEG segmentation file and display it as a colored overlay on the CT images.
+**Goal**: Add a button that calls a segmentation API endpoint, receives the result, and immediately displays it as an overlay on the current study — all in one click with appropriate loading feedback.
 
-### Requirements
+### What to build
 
-1. **Load the DICOM SEG file** from `data/LIDC-IDRI-0001/annotations/`
-2. **Create a segmentation representation** in Cornerstone3D
-3. **Display with appropriate colors** per segment
+- A button (e.g. "AI Assist") that POSTs the active study ID to a local segmentation API
+- While waiting, show a loading indicator in the status bar or UI
+- On success, load the returned segmentation and display it as a labelmap overlay (reuse your Task 4 display logic)
+- On failure, show a clear error message
 
-### Files Available
+### API contract
+
+The API server is at `http://localhost:8000`. It exposes:
 
 ```
-/data/LIDC-IDRI-0001/annotations/LIDC-IDRI-0001_Combined_SEG.dcm    ← LIDC nodule masks
-/data/LIDC-IDRI-0001/annotations/LIDC-IDRI-0001_lung_nodules_seg.dcm ← TotalSegmentator output
+POST /segment
+Body: { "case_id": "LIDC-IDRI-0001" }
+Response: { "seg_path": "data/LIDC-IDRI-0001/annotations/LIDC-IDRI-0001_lung_nodules_seg.dcm" }
 ```
 
-### Approach: Using cornerstoneWADOImageLoader
+You are responsible for building this server (a minimal Flask or FastAPI wrapper around `scripts/run_totalsegmentator.py` is sufficient). If the server is not running, the button should fail gracefully.
 
-```typescript
-// Fetch the DICOM SEG file and add it as an imageId
-const response = await fetch('/data/LIDC-IDRI-0001/annotations/LIDC-IDRI-0001_Combined_SEG.dcm')
-const buffer = await response.arrayBuffer()
-const file = new File([buffer], 'seg.dcm')
-const segImageId = wadouri.fileManager.add(file)
+### Hints
 
-// cornerstoneWADOImageLoader can decode DICOM SEG into per-frame pixel data
-const image = await imageLoader.loadAndCacheImage(segImageId)
-```
+- This bonus builds on Task 4 — get the overlay display working first, then wire up the API call
+- Think carefully about UX: the model may take minutes on CPU. How will the user know it's running?
+- The server can return the pre-computed file immediately if you want to focus on the frontend integration
+- Consider disabling the button while a request is in flight to prevent duplicate submissions
 
-### Alternative: DIY labelmap from raw pixel data
+### What to include in your report
 
-If the DICOM SEG decode is complex, create a synthetic labelmap to demonstrate the overlay mechanism:
-
-```typescript
-// Create a typed array matching the CT volume dimensions
-const labelmap = new Uint8Array(rows * cols * numSlices)
-// Fill with your segment values (1 = nodule, 0 = background)
-
-// Add to segmentation state
-segmentation.addSegmentations([{
-  segmentationId: 'mySegmentation',
-  representation: {
-    type: ToolEnums.SegmentationRepresentations.Labelmap,
-    data: { /* labelmap typed array */ },
-  },
-}])
-```
+1. How did you handle the latency between clicking the button and receiving the result?
+2. What did you build for the server side?
+3. If you used AI: what did it get wrong and what did you have to fix?
 
 ---
 
-## Bonus Task A: One-Click AI Pipeline (30 pts)
+## Bonus B: UI Polish & Extra Features
 
-**Goal**: Implement "Run AI" to execute TotalSegmentator on the current scan and automatically display results.
+**Goal**: Implement one well-executed improvement that makes the viewer more useful.
 
-### Requirements
+### Ideas
 
-1. **Convert current DICOM to NIfTI**
-2. **Run TotalSegmentator** (via Python backend or instructions)
-3. **Auto-load results** when complete
-
-### Suggested Approach
-
-Since TotalSegmentator requires Python, you'll need a backend or a creative workaround:
-
-```typescript
-// Option 1: Call a local Python server
-const response = await fetch('http://localhost:5000/segment', {
-  method: 'POST',
-  body: JSON.stringify({ input: 'current-volume' }),
-});
-
-// Option 2: Show instructions to user to run manually:
-// python scripts/run_totalsegmentator.py input.nii.gz output.nii.gz
-```
-
-### Alternative (No Backend)
-
-Earn partial credit by:
-- Showing a modal with step-by-step instructions to run the Python scripts
-- Creating a "poll for results" feature that checks for new files
-- Providing a drag-and-drop for the segmentation output file
-
----
-
-## Bonus Task B: UI Polish & Extra Tools (20 pts)
-
-**Goal**: Make the viewer genuinely better — cleaner UI, more useful tools, improved user experience. Impress the judges.
-
-### Ideas (pick any, or invent your own)
-
-**Viewer tools:**
-- Crosshair tool — click a point and show its world coordinates (x, y, z in mm)
-- Slice slider — a range input that lets users scrub through slices visually
-- Invert display — toggle between normal and inverted (negative) image
-- Magnifier — a zoom lens that follows the cursor
-- Measurement history — list all Length/Rect measurements with values in the Annotations panel
-
-**UI improvements:**
-- Keyboard shortcuts (e.g. `W` = W/L, `P` = Pan, `Z` = Zoom, arrow keys = next/prev slice)
-- Annotation labels — show a tooltip or badge on each annotation with its tool name and slice number
-- Segment visibility toggles — checkboxes in the Segments panel to show/hide individual labels
-- Loading progress bar — show progress when loading many DICOM slices
-- Dark/light theme toggle
-
-**Data display:**
-- DICOM metadata panel — show patient name, study date, slice thickness, pixel spacing from the loaded scan
-- Nodule summary — after loading ground truth, show a table of nodule IDs, malignancy scores, and slice counts
-- Colorbar legend — display a color-to-label legend alongside the segmentation overlay
+- Slice slider — a range input for scrubbing through slices visually
+- Keyboard shortcuts (`W` = W/L, `P` = Pan, `Z` = Zoom, arrow keys = prev/next slice)
+- DICOM metadata panel — show patient name, study date, pixel spacing from the loaded scan
+- Segment visibility toggles — checkboxes to show/hide individual segmentation labels
+- Annotation labels — show tool name and slice number on each annotation
+- Loading progress bar
 
 ### Judging
 
-Points are awarded for **quality and usefulness**, not quantity. One well-implemented, genuinely helpful feature scores higher than five half-finished ones. Judges will also consider visual design — does it look professional?
+One well-implemented, genuinely useful feature scores higher than five half-finished ones. Quality and visual polish matter.
 
 ---
 
 ## Tips for Success
 
-1. **Start with Task 1** — it's the most straightforward
-2. **Use console.log() liberally** — debugging in the browser is easy
-3. **Partial solutions count** — don't get stuck, move on and return later
-4. **Ask mentors** — we're here to unblock you
+1. **Start with Task 1** — it unlocks the rest of the tasks
+2. **Pre-computed files exist** — Task 4 is independently achievable even if Task 3 is incomplete
+3. **Partial solutions earn credit** — don't get stuck; move on and return
+4. **Use your AI agent** — but verify what it produces; the coordinate systems are a common gotcha
+5. **Commit frequently** — show your progress even if incomplete
 
 ---
 
@@ -274,22 +243,22 @@ When time is up (18:00):
    git push
    ```
 2. **Grant repo access** to `atomorphic@gmail.com` (Settings → Collaborators)
-3. **Email** `team@atomorphic.ai` with:
-   - Your GitHub repo link
-   - Confirmation that access has been granted
-4. **Write your report** (18:00–18:30) — see logistics page for format
+3. **Email** `team@atomorphic.ai` with your GitHub repo link and confirmation that access is granted
+4. **Write your report** (18:00–18:30) using `REPORT_TEMPLATE.md`
 
 ---
 
-## Judging Criteria
+## Evaluation
 
-| Criterion | Weight |
-|-----------|--------|
-| Functionality — does it work? | 60% |
-| Code quality — clean and well-structured? | 20% |
-| Creativity — clever solutions or bonus features? | 10% |
-| Presentation — can you explain your approach? | 10% |
+We evaluate overall performance holistically — there is no fixed point allocation visible to you. We look at:
+
+- **Functionality** — does it work?
+- **Code quality** — is it clean and well-structured?
+- **Understanding** — can you explain your decisions? (this is probed in the follow-up interview)
+- **AI agility** — did you use AI tools effectively while maintaining your own understanding?
+
+Partial implementations are valued. A working Task 1 with a clear explanation of what you attempted on Tasks 2–4 is much better than silence.
 
 ---
 
-**Good luck! May the best engineer win!**
+**Good luck!**

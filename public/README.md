@@ -1,24 +1,29 @@
-# Public Data Directory
+# Public Directory
 
-This directory should contain (or link to) the data files that need to be served by Vite.
+This directory contains a `data` symlink that points to `../data`, making all LIDC case files accessible to the Vite dev server at `/data/`.
 
-## Setup
+## Structure
 
-**Option A: Symlink (recommended)**
+```
+public/
+└── data/    ← symlink to ../data
+```
+
+## How it works
+
+Vite serves everything in `public/` at the root URL. The symlink means:
+
+```
+public/data/LIDC-IDRI-0001/ct/1-001.dcm
+        ↓ served at
+/data/LIDC-IDRI-0001/ct/1-001.dcm
+```
+
+So `fetch('/data/LIDC-IDRI-0001/annotations/069.xml')` in the browser will resolve to `data/LIDC-IDRI-0001/annotations/069.xml` on disk.
+
+## If the symlink is missing
+
 ```bash
 cd public
 ln -s ../data data
 ```
-
-**Option B: Copy**
-```bash
-cp -r data public/
-```
-
-## Required Files
-
-After setup, ensure these paths are accessible:
-- `/data/manifest.json` - List of DICOM files
-- `/data/sample_dicom/*.dcm` - DICOM image files
-- `/data/sample_annotations/*.xml` - LIDC XML annotations
-- `/data/sample_annotations/segmentation.nii.gz` - (Optional) Pre-computed AI results

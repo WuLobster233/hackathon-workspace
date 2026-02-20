@@ -4,15 +4,16 @@
 // =============================================================================
 //
 // This viewer is ALREADY WORKING (load DICOM, scroll, W/L, draw annotations).
-// Your four hackathon tasks are to ADD NEW FEATURES using the skeleton
+// Your three hackathon tasks are to ADD NEW FEATURES using the skeleton
 // functions below — look for the TODO markers!
 //
 // Tasks summary:
-//   Task 1 — Load Ground Truth    (30 pts)  → handleLoadGT()
-//   Task 2 — Export XML           (30 pts)  → handleExportXML()
-//   Task 3 — Load AI Segmentation (40 pts)  → handleLoadAI()
-//   Bonus A — Run AI Pipeline     (30 pts)  → handleRunAI()
-//   Bonus B — UI Polish           (20 pts)  → style / UX improvements
+//   Task 1 — Study Selector          → handleSelectStudy()
+//   Task 2 — Load Ground Truth        → handleLoadGT()
+//   Task 3 — Run AI Segmentation      → handleRunAI()
+//   Task 4 — Show AI Segmentation     → handleShowAISeg()
+//   Bonus A — AI-Assisted Segmentation → handleAIAssist()
+//   Bonus B — UI Polish / Extra Tools
 //
 // See HACKATHON_TASKS.md for full specifications and hints.
 // =============================================================================
@@ -27,7 +28,7 @@ import {
   setupResizeObserver,
   VIEWPORT_ID,
 } from './core/init'
-import { loadDicomFiles, loadSampleData, getImageIds } from './core/loader'
+import { loadDicomFiles, loadSampleData, getImageIds, LIDC_STUDIES } from './core/loader'
 import {
   WindowLevelTool,
   PanTool,
@@ -57,6 +58,7 @@ export default function App() {
   const [ready,       setReady]       = useState(false)
   const [status,      setStatus]      = useState('Initialising...')
   const [activeTool,  setActiveToolUI] = useState<ActiveTool>('WindowLevel')
+  const [activeStudy, setActiveStudy] = useState<string | null>(null)
   const [info,        setInfo]        = useState<Info>({ slice: '--', total: '--', wl: '--' })
   const [segments,    setSegments]    = useState<SegmentEntry[]>([])
   const [annotations, setAnnotations] = useState<AnnotationEntry[]>([])
@@ -204,121 +206,82 @@ export default function App() {
   // ===========================================================================
 
   // ---------------------------------------------------------------------------
-  // TASK 1 — Load Ground Truth Annotations (30 points)
+  // TASK 1 — Study Selector
   // ---------------------------------------------------------------------------
-  // Load the LIDC XML file from /data/sample_annotations/ and render the
-  // radiologist-drawn nodule contours as PlanarFreehandROI annotations.
+  // Build a data panel that lists the available LIDC studies and loads the
+  // selected study's CT slices into the viewer.
   //
-  // Steps (see HACKATHON_TASKS.md § Task 1 for full hints):
-  //   1. Fetch the XML:  await fetch('/data/sample_annotations/<name>.xml')
-  //   2. Parse it with DOMParser to find <roi> → <edgeMap> elements
-  //   3. Convert pixel (col, row) to world coords using:
-  //        import { utilities } from '@cornerstonejs/core'
-  //        const worldPoint = utilities.imageToWorldCoords(imageId, [col, row])
-  //      Z comes directly from <imageZposition> in the XML (already in mm)
-  //   4. Build PlanarFreehandROI annotations and add them with
-  //        annotation.state.addAnnotation(ann, element)
+  // LIDC_STUDIES (imported from ./core/loader) is an array of study metadata.
+  // loadStudy(caseId) (also in ./core/loader) fetches and loads the CT slices.
+  //
+  // See HACKATHON_TASKS.md § Task 1 for hints.
+  //
+  const handleSelectStudy = useCallback(async (caseId: string) => {
+    // TODO Task 1 — implement handleSelectStudy()
+    console.warn('Task 1 not yet implemented')
+    setStatus('Task 1: Study Selector — not yet implemented')
+  }, [])
+
+  // ---------------------------------------------------------------------------
+  // TASK 2 — Load Ground Truth Annotations
+  // ---------------------------------------------------------------------------
+  // Load the LIDC XML file for the active study and render the
+  // radiologist-drawn nodule contours as PlanarFreehandROI annotations
+  // on the correct slices.
+  //
+  // See HACKATHON_TASKS.md § Task 2 for hints.
   //
   const handleLoadGT = useCallback(async () => {
-    // TODO Task 1 — replace the placeholder below with your implementation
-    setStatus('TODO Task 1: Load Ground Truth — implement handleLoadGT()')
-    alert(
-      'TASK 1 — Load Ground Truth (30 pts)\n\n' +
-      'Implement handleLoadGT() in src/App.tsx.\n\n' +
-      'Steps:\n' +
-      '1. fetch(\'/data/sample_annotations/<name>.xml\')\n' +
-      '2. Parse XML → <roi> → <edgeMap> x/y/z coords\n' +
-      '3. Convert pixel → world coords using viewport\n' +
-      '4. Create PlanarFreehandROI annotations\n\n' +
-      'See HACKATHON_TASKS.md for full hints!'
-    )
+    // TODO Task 2 — implement handleLoadGT()
+    console.warn('Task 2 not yet implemented')
+    setStatus('Task 2: Load Ground Truth — not yet implemented')
   }, [])
 
   // ---------------------------------------------------------------------------
-  // TASK 2 — Export Annotations as LIDC-compatible XML (30 points)
+  // TASK 3 — Run AI Segmentation Model
   // ---------------------------------------------------------------------------
-  // Export all PlanarFreehandROI annotations drawn by the user to an XML file
-  // that matches the LIDC annotation schema.
+  // Trigger TotalSegmentator or MONAI Label on the active study's CT data and
+  // retrieve the segmentation result so Task 4 can display it.
   //
-  // Steps (see HACKATHON_TASKS.md § Task 2):
-  //   1. Get all annotations:  annotation.state.getAllAnnotations()
-  //   2. Filter for PlanarFreehandROI annotations
-  //   3. Convert world coords back to pixel coords using:
-  //        vp.worldToCanvas(worldPoint)
-  //   4. Build XML string with <LidcReadMessage> → <readingSession> →
-  //        <unblindedReadNodule> → <roi> → <edgeMap x="…" y="…"/>
-  //   5. Trigger download as annotations.xml
-  //
-  const handleExportXML = useCallback(() => {
-    // TODO Task 2 — replace the placeholder below with your implementation
-    setStatus('TODO Task 2: Export XML — implement handleExportXML()')
-    alert(
-      'TASK 2 — Export as XML (30 pts)\n\n' +
-      'Implement handleExportXML() in src/App.tsx.\n\n' +
-      'Steps:\n' +
-      '1. annotation.state.getAllAnnotations()\n' +
-      '2. Filter PlanarFreehandROI\n' +
-      '3. world → pixel coords via viewport\n' +
-      '4. Build & download annotations.xml\n\n' +
-      'See HACKATHON_TASKS.md for XML schema!'
-    )
-  }, [])
-
-  // ---------------------------------------------------------------------------
-  // TASK 3 — Load AI Segmentation Overlay (40 points)
-  // ---------------------------------------------------------------------------
-  // Load the TotalSegmentator DICOM SEG result from
-  // /data/LIDC-IDRI-0001/annotations/ and display it as a
-  // Cornerstone3D labelmap segmentation overlay.
-  //
-  // Steps (see HACKATHON_TASKS.md § Task 3):
-  //   1. Fetch the DICOM SEG file (LIDC-IDRI-0001_lung_nodules_seg.dcm)
-  //        const res = await fetch('/data/LIDC-IDRI-0001/annotations/...dcm')
-  //        const buf = await res.arrayBuffer()
-  //   2. Add to wadouri fileManager and load as image:
-  //        const segImageId = wadouri.fileManager.add(new File([buf], 'seg.dcm'))
-  //   3. Create a segmentation representation and add to tool group:
-  //        segmentation.addSegmentations([{ segmentationId, representation }])
-  //   4. Call setSegments() to populate the Segments panel (bottom-right)
-  //
-  const handleLoadAI = useCallback(async () => {
-    // TODO Task 3 — replace the placeholder below with your implementation
-    setStatus('TODO Task 3: Load AI Result — implement handleLoadAI()')
-    alert(
-      'TASK 3 — Load AI Segmentation (40 pts)\n\n' +
-      'Implement handleLoadAI() in src/App.tsx.\n\n' +
-      'Steps:\n' +
-      '1. Fetch DICOM SEG: /data/LIDC-IDRI-0001/annotations/LIDC-IDRI-0001_lung_nodules_seg.dcm\n' +
-      '2. Add via wadouri.fileManager and loadAndCacheImage\n' +
-      '3. Create Cornerstone3D labelmap segmentation\n' +
-      '4. Display overlay with per-segment colours\n\n' +
-      'See HACKATHON_TASKS.md for API examples!'
-    )
-  }, [])
-
-  // ---------------------------------------------------------------------------
-  // BONUS A — One-Click AI Pipeline (30 points)
-  // ---------------------------------------------------------------------------
-  // Trigger the full TotalSegmentator pipeline in one click:
-  //   1. Send the loaded DICOM to a Python backend (you need to build one), OR
-  //   2. Show instructions to run scripts/run_totalsegmentator.py manually
-  //      and poll for the output file to appear.
-  //
-  // Partial credit is awarded for any working progress toward automation.
+  // See HACKATHON_TASKS.md § Task 3 for hints and available scripts.
   //
   const handleRunAI = useCallback(async () => {
-    // TODO Bonus A — replace the placeholder below with your implementation
-    setStatus('TODO Bonus A: Run AI Pipeline — implement handleRunAI()')
-    alert(
-      'BONUS A — One-Click AI Pipeline (30 pts)\n\n' +
-      'Implement handleRunAI() in src/App.tsx.\n\n' +
-      'Options:\n' +
-      '1. Build a Python backend to call TotalSegmentator\n' +
-      '2. Guide the user to run scripts/run_totalsegmentator.py\n' +
-      '   then poll /data/sample_annotations/ for the NIfTI output\n\n' +
-      'Partial credit for any working progress!\n\n' +
-      'See scripts/ folder for the Python utilities.'
-    )
+    // TODO Task 3 — implement handleRunAI()
+    console.warn('Task 3 not yet implemented')
+    setStatus('Task 3: Run AI Segmentation — not yet implemented')
+  }, [])
+
+  // ---------------------------------------------------------------------------
+  // TASK 4 — Display AI Segmentation Overlay
+  // ---------------------------------------------------------------------------
+  // Load a DICOM SEG file (from Task 3, or the pre-computed fallback in
+  // data/<activeStudy>/annotations/) and display it as a coloured labelmap
+  // overlay using Cornerstone3D's segmentation API.
+  //
+  // See HACKATHON_TASKS.md § Task 4 for hints.
+  //
+  const handleShowAISeg = useCallback(async () => {
+    // TODO Task 4 — implement handleShowAISeg()
+    console.warn('Task 4 not yet implemented')
+    setStatus('Task 4: Show AI Segmentation — not yet implemented')
+  }, [])
+
+  // ---------------------------------------------------------------------------
+  // BONUS A — AI-Assisted Segmentation
+  // ---------------------------------------------------------------------------
+  // POST the active study ID to a local segmentation API at localhost:8000,
+  // receive the resulting DICOM SEG path, and display it as a labelmap overlay.
+  // Show loading feedback while the model runs and handle errors gracefully.
+  //
+  // API: POST http://localhost:8000/segment  { case_id: string }
+  //      → { seg_path: string }
+  //
+  // See HACKATHON_TASKS.md § Bonus A for hints.
+  //
+  const handleAIAssist = useCallback(async () => {
+    // TODO Bonus A — implement handleAIAssist()
+    console.warn('Bonus A not yet implemented')
+    setStatus('Bonus A: AI-Assisted Segmentation — not yet implemented')
   }, [])
 
   // ==========================================================================
@@ -400,14 +363,14 @@ export default function App() {
           <button disabled={!ready} onClick={handleLoadGT}>
             Load GT
           </button>
-          <button disabled={!ready} onClick={handleExportXML}>
-            Export XML
-          </button>
-          <button disabled={!ready} onClick={handleLoadAI}>
-            Load AI
-          </button>
           <button disabled={!ready} onClick={handleRunAI}>
             Run AI
+          </button>
+          <button disabled={!ready} onClick={handleShowAISeg}>
+            Show AI Seg
+          </button>
+          <button disabled={!ready} onClick={handleAIAssist}>
+            AI Assist
           </button>
         </div>
 
@@ -416,7 +379,7 @@ export default function App() {
       {/* Main content */}
       <div className="main-content">
 
-        {/* Left panel — image info */}
+        {/* Left panel — image info + study selector */}
         <div className="panel">
           <h3>Image Info</h3>
           <div className="list-content">
@@ -433,6 +396,12 @@ export default function App() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* ── TASK 1: Study Selector — implement handleSelectStudy() ── */}
+          <h3 style={{ borderTop: '1px solid var(--border)' }}>Studies</h3>
+          <div className="list-content">
+            <p className="empty">Task 1: implement study selector</p>
           </div>
         </div>
 

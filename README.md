@@ -1,6 +1,6 @@
 # Atomorphic Mini Hackathon - DICOM Annotation Workspace
 
-Welcome to the Atomorphic Mini Hackathon! This workspace contains a working DICOM viewer built with Cornerstone3D. Your challenge is to extend it with annotation and AI segmentation features.
+Welcome to the Atomorphic Mini Hackathon! This workspace contains a working DICOM viewer built with Cornerstone3D. Your challenge is to extend it with a study selector, annotation display, and AI segmentation features.
 
 ## Quick Start
 
@@ -12,7 +12,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000 in your browser.
+Open http://localhost:5173 in your browser.
 
 ## What's Already Working
 
@@ -25,17 +25,18 @@ Open http://localhost:3000 in your browser.
 
 ## Your Hackathon Tasks
 
-The viewer has four disabled buttons that need YOUR implementation:
+Implement the handler functions in `src/App.tsx` (look for the TODO markers):
 
-| Button | Task | Points |
-|--------|------|--------|
-| **Load Ground Truth** | Parse LIDC XML annotations and display them | 30 pts |
-| **Export XML** | Export drawn annotations to LIDC-compatible XML | 30 pts |
-| **Load AI Result** | Load and display pre-computed segmentation | 40 pts |
-| **Run AI** | Execute TotalSegmentator and display results | 30 pts (bonus A) |
-| *(open-ended)* | UI polish and extra viewer tools | 20 pts (bonus B) |
+| Task | Button / Location | Description |
+|------|-------------------|-------------|
+| Task 1 | Studies panel (left sidebar) | Build a study selector that lists all LIDC cases and loads the selected one |
+| Task 2 | **Load GT** button | Parse the LIDC XML annotations and display nodule contours |
+| Task 3 | **Run AI** button | Run TotalSegmentator or MONAI Label on the active study |
+| Task 4 | **Show AI Seg** button | Load and display the segmentation result as a coloured overlay |
+| Bonus A | **AI Assist** button | Call a segmentation API and display the result end-to-end |
+| Bonus B | *(open-ended)* | UI polish and extra viewer tools |
 
-See `HACKATHON_TASKS.md` for detailed instructions on each task.
+See `HACKATHON_TASKS.md` for full specifications and hints for each task.
 
 ## Project Structure
 
@@ -43,112 +44,108 @@ See `HACKATHON_TASKS.md` for detailed instructions on each task.
 hackathon-workspace/
 ├── src/
 │   ├── main.tsx             # React entry point
-│   ├── App.tsx              # Main React component (YOUR TASKS HERE!)
+│   ├── App.tsx              # Main React component — YOUR TASKS ARE HERE
 │   ├── core/
-│   │   ├── init.ts          # Cornerstone3D initialisation
-│   │   └── loader.ts        # DICOM loading functions
+│   │   ├── init.ts          # Cornerstone3D initialisation (do not modify)
+│   │   └── loader.ts        # DICOM loading + LIDC_STUDIES metadata + loadStudy()
 │   └── styles.css           # Application styles
 ├── data/
-│   └── LIDC-IDRI-XXXX/      # One folder per patient case
+│   └── LIDC-IDRI-XXXX/      # 10 patient cases (0001–0010)
 │       ├── ct/              # CT DICOM slices (1-001.dcm … 1-NNN.dcm)
-│       └── annotations/     # XML + LIDC SEG + TotalSeg SEG
-├── scripts/                 # Python utility scripts
+│       └── annotations/     # XML + pre-computed DICOM SEG files
+├── scripts/
+│   ├── dicom_to_nifti.py    # Convert DICOM → NIfTI for AI models
+│   ├── run_totalsegmentator.py  # Run TotalSegmentator on a NIfTI file
+│   └── parse_lidc_xml.py    # Parse LIDC XML (reference/study)
 ├── public/
-│   └── data/               # Symlink → data/ (served at /data/ URL)
-├── index.html              # Vite HTML entry
-├── package.json            # Node.js dependencies
-├── vite.config.ts          # Vite bundler configuration
-└── tsconfig.json           # TypeScript configuration
+│   └── data/                # Symlink → ../data (served at /data/ by Vite)
+├── index.html               # Vite HTML entry
+├── package.json             # Node.js dependencies
+├── vite.config.ts           # Vite bundler configuration
+└── tsconfig.json            # TypeScript configuration
 ```
 
 ## Key File to Modify
 
 ### `src/App.tsx`
 
-This file is the main React component. It contains four async handler functions with TODO markers — one per task:
+Four task stubs + one bonus stub, each with a TODO comment:
 
 ```typescript
 // TASK 1 — implement this:
-const handleLoadGT = useCallback(async () => {
-  // TODO: fetch LIDC XML, parse, display as PlanarFreehandROI annotations
+const handleSelectStudy = useCallback(async (caseId: string) => {
+  // TODO: load CT slices for the selected study, update activeStudy state
 }, [])
 
 // TASK 2 — implement this:
-const handleExportXML = useCallback(() => {
-  // TODO: get annotations, convert to XML, trigger download
+const handleLoadGT = useCallback(async () => {
+  // TODO: fetch LIDC XML for activeStudy, parse, display as PlanarFreehandROI annotations
 }, [])
 
 // TASK 3 — implement this:
-const handleLoadAI = useCallback(async () => {
-  // TODO: fetch NIfTI, create labelmap segmentation overlay
+const handleRunAI = useCallback(async () => {
+  // TODO: trigger AI segmentation model on activeStudy's CT data
+}, [])
+
+// TASK 4 — implement this:
+const handleShowAISeg = useCallback(async () => {
+  // TODO: load DICOM SEG result and display as labelmap overlay
 }, [])
 
 // BONUS A — implement this:
-const handleRunAI = useCallback(async () => {
-  // TODO: trigger AI pipeline or guide user
+const handleAIAssist = useCallback(async () => {
+  // TODO: POST to segmentation API, await result, display overlay
 }, [])
 ```
 
-## Helpful Cornerstone3D APIs
+### `src/core/loader.ts`
 
-### Adding Freehand Annotations
-```typescript
-import { annotation } from '@cornerstonejs/tools';
+Exports you will need:
 
-// Create annotation programmatically
-const annotationUID = annotation.state.addAnnotation({
-  annotationUID: crypto.randomUUID(),
-  metadata: {
-    toolName: 'PlanarFreehandROI',
-    referencedImageId: imageId,
-    // ...
-  },
-  data: {
-    handles: {
-      points: [/* world coordinates */],
-    },
-    // ...
-  },
-});
-```
-
-### Working with Segmentations (Stack viewport)
-```typescript
-import { segmentation, Enums as ToolEnums } from '@cornerstonejs/tools'
-
-// Add a segmentation (labelmap data as a typed array)
-segmentation.addSegmentations([{
-  segmentationId: 'mySegmentation',
-  representation: {
-    type: ToolEnums.SegmentationRepresentations.Labelmap,
-    data: { /* your labelmap data */ },
-  },
-}])
-
-// Display on the viewport
-await segmentation.addLabelmapRepresentationToViewportMap({
-  [VIEWPORT_ID]: [{ segmentationId: 'mySegmentation' }],
-})
-```
+| Export | Description |
+|--------|-------------|
+| `LIDC_STUDIES` | Array of `{ id, slices, xml }` for all 10 cases |
+| `loadStudy(caseId, onProgress?)` | Loads CT slices for a given case ID into the viewer |
+| `loadDicomFiles(files, onProgress?)` | Loads File objects into the viewer |
+| `getImageIds()` | Returns the currently loaded image ID array |
 
 ## Data Files
 
-### Ground Truth (LIDC XML)
-- Location: `data/LIDC-IDRI-XXXX/annotations/*.xml`
-- Format: LIDC-IDRI XML with `<roi>` elements containing `<edgeMap>` pixel coordinates
-- The viewer auto-loads `LIDC-IDRI-0001` on startup via `public/data` → `data/`
+All data is served under `/data/` at runtime (via the `public/data` symlink).
 
-### Pre-computed Segmentation (DICOM SEG)
-- Location: `data/LIDC-IDRI-XXXX/annotations/*_Combined_SEG.dcm` (LIDC nodule masks)
-- Location: `data/LIDC-IDRI-XXXX/annotations/*_lung_nodules_seg.dcm` (TotalSegmentator output)
-- Format: DICOM SEG (multi-frame binary segmentation)
+### CT Slices
+```
+/data/LIDC-IDRI-XXXX/ct/1-001.dcm  …  1-NNN.dcm
+```
+
+### Ground Truth XML
+```
+/data/LIDC-IDRI-XXXX/annotations/<xml-file>.xml
+```
+
+### Pre-computed Segmentations (DICOM SEG)
+```
+/data/LIDC-IDRI-XXXX/annotations/LIDC-IDRI-XXXX_Combined_SEG.dcm        ← LIDC nodule masks
+/data/LIDC-IDRI-XXXX/annotations/LIDC-IDRI-XXXX_lung_nodules_seg.dcm    ← TotalSegmentator output
+```
+
+See `data/README.md` for the full case list with slice counts and XML filenames.
+
+## Useful References
+
+- [Cornerstone3D docs](https://www.cornerstonejs.org/docs/) — viewports, tools, annotations, segmentation API
+- [MDN: DOMParser](https://developer.mozilla.org/en-US/docs/Web/API/DOMParser) — browser XML parsing
+- [MDN: getElementsByTagNameNS](https://developer.mozilla.org/en-US/docs/Web/API/Element/getElementsByTagNameNS) — namespace-aware XML lookup
+- [dcmjs](https://github.com/dcmjs-org/dcmjs) — JavaScript DICOM SEG decoding
+- [TotalSegmentator](https://github.com/wasserth/TotalSegmentator) — CLI and Python API reference
 
 ## Tips for Success
 
-1. **Start with Task 1** - It's the most straightforward
-2. **Use the browser console** - `console.log()` is your friend
-3. **Check the Cornerstone3D docs** - https://www.cornerstonejs.org/docs/
-4. **Ask questions** - Mentors are here to help!
+1. **Start with Task 1** — it unlocks the rest (Tasks 2–4 depend on `activeStudy`)
+2. **Pre-computed SEG files exist** — Task 4 is independently achievable even if Task 3 is incomplete
+3. **Partial solutions earn credit** — don't get stuck; move on and return
+4. **Use your AI agent** — but verify what it produces; coordinate systems are a common gotcha
+5. **Commit frequently** — show your progress even if incomplete
 
 ## Troubleshooting
 
@@ -159,13 +156,12 @@ npm install
 ```
 
 ### CORS errors
-Make sure you're accessing via `http://localhost:3000`, not `file://`
+Make sure you're accessing via `http://localhost:5173`, not `file://`
 
 ### Viewport is black
 - Check browser console for errors
-- Ensure DICOM files are valid
+- Ensure a study has been loaded (Task 1)
 - Try the Reset button
 
-## Good Luck!
-
-Remember: The goal is to learn and demonstrate your problem-solving skills. Partial implementations are valued - show your thought process!
+### Segmentation overlay doesn't appear on the right slices
+The coordinate systems between DICOM pixel space, canvas space, and world space are different. See `HACKATHON_TASKS.md` hints and the Cornerstone3D docs on `utilities.imageToWorldCoords`.

@@ -42,7 +42,7 @@ Vite serves `public/data` → `../data` via a symlink, so all files are accessib
 ...
 ```
 
-The viewer auto-loads `LIDC-IDRI-0001` on startup. You can load any case by fetching from these URLs.
+The viewer does not auto-load any study on startup. Use the Studies panel (Task 1) to select a case, which loads its CT slices into the viewer.
 
 ## Annotation Format
 
