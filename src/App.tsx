@@ -205,9 +205,16 @@ export default function App() {
   // See HACKATHON_TASKS.md § Task 1 for hints.
   //
   const handleSelectStudy = useCallback(async (caseId: string) => {
-    // TODO Task 1 — implement handleSelectStudy()
-    console.warn('Task 1 not yet implemented')
-    setStatus('Task 1: Study Selector — not yet implemented')
+    try {
+      setStatus(`Loading study ${caseId}…`)
+      const numImages = await loadStudy(caseId)
+      setActiveStudy(caseId)
+      setInfo(prev => ({ ...prev, slice: '1', total: String(numImages) }))
+      setStatus(`Loaded study ${caseId} — ${numImages} slice${numImages !== 1 ? 's' : ''}`)
+    } catch (err) {
+      setStatus(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      setActiveStudy(null)
+    }
   }, [])
 
   // ---------------------------------------------------------------------------
@@ -389,7 +396,28 @@ export default function App() {
           {/* ── TASK 1: Study Selector — implement handleSelectStudy() ── */}
           <h3 style={{ borderTop: '1px solid var(--border)' }}>Studies</h3>
           <div className="list-content">
-            <p className="empty">Task 1: implement study selector</p>
+            {LIDC_STUDIES.map(study => (
+              <button
+                key={study.id}
+                onClick={() => handleSelectStudy(study.id)}
+                className={activeStudy === study.id ? 'active' : ''}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  marginBottom: '4px',
+                  textAlign: 'left',
+                  border: '1px solid var(--border)',
+                  background: activeStudy === study.id ? 'var(--accent)' : 'var(--bg-panel)',
+                  color: activeStudy === study.id ? 'var(--text-light)' : 'var(--text)',
+                  cursor: 'pointer',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                }}
+              >
+                <strong>{study.id}</strong>
+                <div style={{ fontSize: '10px', opacity: 0.7 }}>{study.slices} slices</div>
+              </button>
+            ))}
           </div>
         </div>
 
