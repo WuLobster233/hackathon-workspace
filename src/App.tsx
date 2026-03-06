@@ -227,9 +227,184 @@ export default function App() {
   // See HACKATHON_TASKS.md § Task 2 for hints.
   //
   const handleLoadGT = useCallback(async () => {
-    // TODO Task 2 — implement handleLoadGT()
-    console.warn('Task 2 not yet implemented')
-    setStatus('Task 2: Load Ground Truth — not yet implemented')
+    if (!activeStudy) {
+      setStatus('Error: No study selected')
+      return
+    }
+
+    try {
+      setStatus(`Loading ground truth for ${activeStudy}…`)
+
+      // Find the study metadata
+      const study = LIDC_STUDIES.find(s => s.id === activeStudy)
+      if (!study) throw new Error('Study not found')
+
+      console.log('Loading XML from:', `/data/${activeStudy}/${study.xml}`)
+
+      // Fetch the XML annotation file
+      const xmlResponse = await fetch(`/data/${activeStudy}/${study.xml}`)
+      if (!xmlResponse.ok) throw new Error(`Failed to load XML: ${xmlResponse.statusText}`)
+      const xmlText = await xmlResponse.text()
+
+      console.log('XML fetched successfully, length:', xmlText.length)
+
+      // Parse XML with DOMParser
+      const parser = new DOMParser()
+      const xmlDoc = parser.parseFromString(xmlText, 'application/xml')
+      
+      // Check for parse errors
+      if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+        throw new Error('XML parse error')
+      }
+
+      // Define the LIDC default namespace
+      const NS = 'http://www.nih.gov'
+      
+      // Query all reading sessions using namespace-aware method
+      const sessions = xmlDoc.getElementsByTagNameNS(NS, 'readingSession')
+      console.log('Reading sessions found:', sessions.length)
+
+      let annotationCount = 0
+
+      // Import Cornerstone3D utilities for coordinate conversion
+      const { utilities } = await import('@cornerstonejs/core')
+      const re = getRenderingEngine()
+      const viewport = re.getViewport(VIEWPORT_ID) as any
+      if (!viewport) throw new Error('Viewport not found')
+
+      // Get all loaded image IDs
+      const imageIds = getImageIds()
+      console.log('Total images available:', imageIds.length)
+      
+      // Build a map of imageSOP_UID to imageId index for accurate matching
+      const sopUidToImageIndex: { [key: string]: number } = {}
+
+      // Iterate through each reading session
+      Array.from(sessions).forEach((session, sessionIdx) => {
+        // Query unblinded nodules within this session
+        const nodules = session.getElementsByTagNameNS(NS, 'unblindedReadNodule')
+        console.log(`Session ${sessionIdx}: ${nodules.length} nodules found`)
+
+        // Iterate through each nodule
+        Array.from(nodules).forEach((nodule, noduleIdx) => {
+          // Query all ROIs (regions of interest) within this nodule
+          const rois = nodule.getElementsByTagNameNS(NS, 'roi')
+          console.log(`Nodule ${noduleIdx}: ${rois.length} ROIs found`)
+
+          // Iterate through each ROI
+          Array.from(rois).forEach((roi, roiIdx) => {
+            // Get the Z position (depth) of this ROI in millimeters
+            const zPosEl = roi.getElementsByTagNameNS(NS, 'imageZposition')[0]
+            if (!zPosEl) {
+              console.log(`ROI ${roiIdx}: imageZposition not found`)
+              return
+            }
+
+            const zPosMm = parseFloat(zPosEl.textContent?.trim() || '0')
+            
+            // Get the SOP UID to match with image
+            const sopUidEl = roi.getElementsByTagNameNS(NS, 'imageSOP_UID')[0]
+            const sopUid = sopUidEl?.textContent?.trim() || ''
+            
+            // Get all edge map points for this ROI contour
+            const edgeMaps = roi.getElementsByTagNameNS(NS, 'edgeMap')
+
+            console.log(`ROI ${roiIdx}: Z=${zPosMm}, edgeMap count=${edgeMaps.length}, SOP_UID=${sopUid}`)
+
+            if (edgeMaps.length === 0) {
+              console.log(`ROI ${roiIdx}: no edgeMaps`)
+              return
+            }
+
+            // Find the image index based on Z position or SOP UID
+            // First try to estimate from Z position: convert mm to slice index
+            // Z range appears to be approximately -250 to 0, with ~2.5mm spacing
+            let sliceIdx = Math.round((zPosMm - (-250)) / 2.5)
+            if (sliceIdx < 0) sliceIdx = 0
+            if (sliceIdx >= imageIds.length) sliceIdx = imageIds.length - 1
+
+            const imageId = imageIds[sliceIdx]
+            if (!imageId) {
+              console.log(`ROI ${roiIdx}: imageId not found, sliceIdx=${sliceIdx}`)
+              return
+            }
+
+            console.log(`ROI ${roiIdx}: mapped to imageId at index ${sliceIdx}`)
+
+            // Collect all world coordinate points for this ROI
+            const points: Array<[number, number, number]> = []
+            
+            Array.from(edgeMaps).forEach((edgeMap, edgeIdx) => {
+              // Get pixel coordinates from XML
+              const xEl = edgeMap.getElementsByTagNameNS(NS, 'xCoord')[0]
+              const yEl = edgeMap.getElementsByTagNameNS(NS, 'yCoord')[0]
+              
+              if (xEl && yEl) {
+                const xCoord = parseFloat(xEl.textContent?.trim() || '0')
+                const yCoord = parseFloat(yEl.textContent?.trim() || '0')
+                
+                // Convert pixel coordinates [x, y] to world coordinates [x, y, z] in mm
+                // Note: imageToWorldCoords expects [col, row] = [xCoord, yCoord]
+                const worldCoord = utilities.imageToWorldCoords(imageId, [xCoord, yCoord])
+                
+                if (worldCoord) {
+                  console.log(
+                    `  Edge ${edgeIdx}: pixel(${xCoord}, ${yCoord}) → world(${worldCoord[0].toFixed(2)}, ${worldCoord[1].toFixed(2)}, ${worldCoord[2].toFixed(2)})`
+                  )
+                  points.push(worldCoord as [number, number, number])
+                } else {
+                  console.log(`  Edge ${edgeIdx}: coordinate conversion failed`)
+                }
+              }
+            })
+
+            console.log(`ROI ${roiIdx}: collected ${points.length} world coordinate points`)
+
+            // PlanarFreehandROI requires at least 3 points to form a closed contour
+            if (points.length < 3) {
+              console.log(`ROI ${roiIdx}: insufficient points (need ≥3), skipped`)
+              return
+            }
+
+            try {
+              // Create and add annotation to Cornerstone3D state
+              annotation.state.addAnnotation(
+                {
+                  annotationUID: crypto.randomUUID(),
+                  metadata: {
+                    toolName: PlanarFreehandROITool.toolName,
+                    referencedImageId: imageId,
+                    FrameOfReferenceUID: viewport.getFrameOfReferenceUID(),
+                  },
+                  data: {
+                    handles: {
+                      points: points,
+                    },
+                  },
+                } as any,
+                {
+                  viewportId: VIEWPORT_ID,
+                } as any
+              )
+              annotationCount++
+              console.log(`ROI ${roiIdx}: annotation added successfully`)
+            } catch (err) {
+              console.warn(`Failed to add annotation ${roiIdx}:`, err)
+            }
+          })
+        })
+      })
+
+      // Trigger viewport re-render to display all annotations
+      const re2 = getRenderingEngine()
+      re2?.render()
+
+      setStatus(`Loaded ${annotationCount} ground truth annotation${annotationCount !== 1 ? 's' : ''}`)
+      console.log(`Total annotations loaded: ${annotationCount}`)
+    } catch (err) {
+      setStatus(`Error loading GT: ${err instanceof Error ? err.message : String(err)}`)
+      console.error('Detailed error:', err)
+    }
   }, [activeStudy])
 
   // ---------------------------------------------------------------------------
